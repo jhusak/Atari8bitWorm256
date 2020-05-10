@@ -54,30 +54,30 @@ cont
 	lda (pos),y	; check if clean way
 	beq empty
 	cmp #"*"+192	; check for food
-	bne crash
+	bne crash	; no, this is not food...
 	inw len		; eat it
 	jsr repeat	; get new food
 	ldy ypos	; restore y
-	bne empty
+	bne empty	; always branch
 crash	lda #"x"	; paint x
-	sta (pos),y
-	bne start ; :)
+	sta (pos),y	; at y
+	bne start 	; always branch
 empty	lda #'o'	; paint head
-	sta (pos),y
+	sta (pos),y	; at y
 
-	ldy #0
-	lda (ptrt),y	; clear
-	tay		; the
-	mva #0 (pos),y	; post-tail
+	ldy #0		; 
+	lda (ptrt),y	; get tail pos
+	tay		; 
+	mva #0 (pos),y	; clear tail
 
-	clc
-	lda ptrt
+	clc		; well tpos=ptrt+len
+	lda ptrt	
 	adc len
 	sta tpos
 	lda ptrt+1
 	adc len+1
 	sta tpos+1
-	cmp ptrh+1
+	cmp ptrh+1	; if ptrh!=pos, then go greater
 	bne greater
 	lda tpos
 	cmp ptrh
@@ -87,12 +87,12 @@ empty	lda #'o'	; paint head
 greater
 	inw ptrh	; inc head pointer
 	
-	lda 20		
-	adc #15
-@	cmp 20
-	bne @-		; game speed loop, ~3 moves per second
+	lda 20		; game speed
+	adc #15		; ~3 moves per second
+@	cmp 20		; ...
+	bne @-		; if shorter than 15, loop again
 		
-	beq begloop
+	beq begloop	; branch always
 	
 frame
 	mwa #$bb80 pos	; set pos one page before gamefield
@@ -140,6 +140,6 @@ skip
 	lda foodplaced	; check food was placed
 	bpl repeat	; if not, repeat
 @	rts
-worm	dta c"WORM256"-32
-add	dta 0,$f0,$10,$10,$ff,$ff,$ff,$ff,$1
+worm	dta c"WORM256"-32 ; this will show at first line, clearing cursor by the way
+add	dta 0,$f0,$10,$10,$ff,$ff,$ff,$ff,$1 	; change pos table. No need to store remaining ones.
 	
