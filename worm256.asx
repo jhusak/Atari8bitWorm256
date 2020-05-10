@@ -1,0 +1,145 @@
+; WORM
+; by Jakub Husak
+; may, 2020
+; two evenings of optimalisation
+; to play press joystick button
+; then move joystick not in diagonal!
+; if so you'll probably die instantly.
+
+	org $bf00
+pos	equ $80
+ptrt	equ $82
+ptrh	equ $84
+len	equ $86
+tpos	equ $88
+ypos	equ $8a ;1
+food	equ $8b ;1
+foodplaced	equ $8c ;1
+
+start
+	lda #$0
+	sta $2c6
+	sta len+1
+	sta ptrt
+	sta ptrh
+	lda #$21
+	sta ptrt+1	
+	sta ptrh+1	
+	sta 559
+	jsr frame
+	mvy #$76 ypos
+	ldx #0
+@	lda worm,x
+	sta $bc40,x
+	inx
+	cpx #8
+	bne @-
+	stx len
+@	lda $284	; wait for strig0
+	bne @-
+
+begloop	lda $278 ; this 8 instructions
+	eor #$0f ; and 9-byte array at the end
+	seq      ; changes direction of worm
+	tax      ; depending on joystick position
+	lda add,x
+	clc
+	adc ypos
+	sta ypos
+
+cont
+	ldy #0
+	sta (ptrh),y	; store head position 
+	tay
+	lda (pos),y	; check if clean way
+	beq empty
+	cmp #"*"+192	; check for food
+	bne crash
+	inw len		; eat it
+	jsr repeat	; get new food
+	ldy ypos	; restore y
+	bne empty
+crash	lda #"x"	; paint x
+	sta (pos),y
+	bne start ; :)
+empty	lda #'o'	; paint head
+	sta (pos),y
+
+	ldy #0
+	lda (ptrt),y	; clear
+	tay		; the
+	mva #0 (pos),y	; post-tail
+
+	clc
+	lda ptrt
+	adc len
+	sta tpos
+	lda ptrt+1
+	adc len+1
+	sta tpos+1
+	cmp ptrh+1
+	bne greater
+	lda tpos
+	cmp ptrh
+	bne greater	  
+
+	inw ptrt	; inc tail pointer if not greater
+greater
+	inw ptrh	; inc head pointer
+	
+	lda 20		
+	adc #15
+@	cmp 20
+	bne @-		; game speed loop, ~3 moves per second
+		
+	beq begloop
+	
+frame
+	mwa #$bb80 pos	; set pos one page before gamefield
+	ldy #$a6	; begin from second line
+	lda #6
+@	sta (pos),y	; change gr mode here to 6
+	iny
+	cpy #$bd	; finish on last
+	bne @-
+
+	inc pos+1	; set pos to beg of gamefield
+; fill all field
+	lda #"#"	; fill whole playfield with "#"
+	ldy #0
+@	sta (pos),y
+	dey
+	bne @-
+; fill internals and place food
+repeat
+	mvy $d20a food	; get random position of food
+	ldy #$11	; start in second playfield line
+	sty foodplaced	; neg bit says that food is placed
+frloop	tya		; checking for
+	and #$f
+	beq skip	; left
+	cmp #$f		; and right edge
+	beq skip	; if so ignore, because it is frame
+
+	lda (pos),y	; load interior location
+	cmp #"#"	; first time only, clear interior
+	beq clear
+	cmp #'o'	; do not clear worm
+	beq skip
+	cpy food	; check if food is to be placed here
+	bne skip
+	lda #"*"+192 	; place food
+	sta foodplaced 	; say food was placed (set neg bit)
+	dta { bit }	; skip next instruction ("bit" does nothing here)
+clear	lda #0		; clear field
+	sta (pos),y
+skip
+	iny		; go to next location
+	cpy #$f0	; check if gamefield done
+	bne frloop	
+	lda foodplaced	; check food was placed
+	bpl repeat	; if not, repeat
+@	rts
+worm	dta c"WORM256"-32
+add	dta 0,$f0,$10,$10,$ff,$ff,$ff,$ff,$1
+	
