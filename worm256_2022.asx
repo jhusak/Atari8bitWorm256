@@ -1,0 +1,153 @@
+; WORM
+; by Jakub Husak
+; may, 2020
+; two evenings of optimalisation
+; to play press joystick button
+; then move joystick not in diagonal!
+; if so you'll probably die instantly.
+
+	org $be80
+pos	equ $80
+ptrt	equ $82
+ptrh	equ $84
+len	equ $86
+tpos	equ $88
+ypos	equ $8a ;1
+food	equ $8b ;1
+last	equ $8d ;1
+STICK	equ	$278
+foodplaced	equ $8c ;1
+CONSOL	=	$D01F
+sound	=	$fdfc
+
+
+start
+drawframe
+	mwa #$bb80 pos	; set pos one page before gamefield
+	ldy #$a6	; begin from second line
+	lda #6
+@	sta (pos),y	; change gr mode here to 6
+	iny
+	cpy #$bd	; finish on last
+	bne @-
+
+	inc pos+1	; set pos to beg of gamefield
+; fill all field
+	ldy #0
+	sty last
+	sty $2c6
+	sty ptrt
+	sty ptrh
+	lda #$21
+	sta ptrt+1	
+	sta ptrh+1	
+	sta 559
+	lda #"#"	; fill whole playfield with "#"
+	sta len
+@	sta (pos),y
+	dey
+	bne @-
+	jsr clearandplacefood
+	mvy #$76 ypos
+	ldx #12
+@	lda worm,x
+	sta $bc40,x
+	dex
+	bpl @-
+
+begloop	lda STICK ; this 5 instructions
+	eor #$f
+	tax
+	lda add,x
+	sne
+	lda last
+	sta last
+	clc
+	adc ypos
+	sta ypos
+
+cont
+	ldy #0
+	sta (ptrh),y	; store head position 
+	tay
+	lda (pos),y	; check if clean way
+	beq empty
+	cmp #"*"+192	; check for food
+	beq no crash
+crash	lda #"x"+128	; paint x
+	sta (pos),y
+	jsr delay
+	beq start ; :)
+nocrash
+	inc len		; eat it
+	jsr clearandplacefood	; get new food
+	ldy ypos	; restore y
+empty	lda #'o'	; paint head
+	sta (pos),y
+
+	ldy #0
+	lda (ptrt),y	; clear
+	tay		; the
+	mva #0 (pos),y	; post-tail
+
+	clc
+	lda ptrt
+	adc len
+	sta tpos
+	lda ptrt+1
+	adc #0
+	sta tpos+1
+	cmp ptrh+1
+	bne greater
+	lda tpos
+	cmp ptrh
+	bne greater	  
+
+	inw ptrt	; inc tail pointer if not greater
+greater
+	inw ptrh	; inc head pointer
+	
+	jsr delay
+	beq begloop
+	
+; fill internals and place food
+clearandplacefood
+	mvy $d20a food	; get random position of food
+	ldy #$11	; start in second playfield line
+frloop	tya		; checking for
+	and #$f
+	beq skip	; left
+	cmp #$f		; and right edge
+	beq skip	; if so ignore, because it is frame
+
+	lda (pos),y	; load interior location
+	cmp #"#"	; first time only, clear interior
+	beq clear
+	cmp #'o'	; do not clear worm
+	beq skip
+	cpy food	; check if food is to be placed here
+	bne skip
+	lda #"*"+192 	; place food
+	sta (pos),y 	; food was placed
+	rts		; so return
+clear	lda #0		; clear field
+;	dta { bit.w }
+;frame	lda #"#"
+	sta (pos),y
+skip
+	iny		; go to next location
+	cpy #$f0
+	sty CONSOL
+	beq clearandplacefood
+	bne frloop	
+	; rts ; - never reached
+delay
+	lda 20		
+	adc #15
+@	cmp 20
+	bne @-		; game speed loop, ~3 moves per second
+	rts
+
+worm	dta c"WORM-256/2022"-32
+add	dta 0,$f0,$10,0, $ff,0,0,0, 1
+	
