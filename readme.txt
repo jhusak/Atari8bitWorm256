@@ -5,6 +5,7 @@ DATE: 08.05.2020
 PARTY: PSA2020
 COMPILE:mads worm256.asx -o:worm256.xex
 PLATFORM: Atari 8-bit
+CODE_LENGTH:250 bytes + 6 bytes of header
 
 Update:
 Even more optimized version worm256_2022 added.
